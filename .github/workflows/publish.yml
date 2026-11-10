@@ -42,7 +42,7 @@ jobs:
           dotnet build Jellyfin.Plugin.CriticAvg/Jellyfin.Plugin.CriticAvg.csproj
           -c Release -o out
           -p:JellyfinVersion=${{ matrix.jellyfin }}
-          -p:TargetFramework=${{ matrix.framework }}
+          -p:JfFramework=${{ matrix.framework }}
           -p:Version=${{ env.PLUGIN_VERSION }}.${{ matrix.build }}
 
       - name: Package
