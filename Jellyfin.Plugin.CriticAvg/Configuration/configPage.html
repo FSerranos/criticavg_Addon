@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Critic AVG</title>
+</head>
+<body>
+<div id="CriticAvgConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select">
+    <div data-role="content">
+        <div class="content-primary">
+            <h2 class="sectionTitle">Critic AVG</h2>
+            <p>Dozens of critics. One clear score. This plugin writes each film's Critic AVG score into its rating, so you can sort and filter your library by it.</p>
+
+            <form id="CriticAvgConfigForm">
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="CaServerUrl">Critic AVG server address</label>
+                    <input id="CaServerUrl" name="CaServerUrl" type="url" is="emby-input" required placeholder="https://criticavg.yourname.workers.dev" />
+                    <div class="fieldDescription">The address of your Critic AVG site, the same one you open in the browser.</div>
+                </div>
+
+                <div style="margin:-0.5em 0 1.5em">
+                    <button id="CaTest" is="emby-button" type="button" class="raised button-alt"><span>Test connection</span></button>
+                    <span id="CaTestResult" style="margin-left:1em"></span>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="CaPreset">Weights</label>
+                    <select is="emby-select" id="CaPreset" name="CaPreset" class="emby-select-withcolor emby-select">
+                        <option value="balanced">Balanced (Equilibrado)</option>
+                        <option value="equal">All equal (Todas iguales)</option>
+                        <option value="critics">Critics (Crítica)</option>
+                        <option value="audience">Audience (Público)</option>
+                        <option value="cinephile">Cinephile (Cinéfilo)</option>
+                        <option value="spain">Spain (España)</option>
+                    </select>
+                    <div class="fieldDescription">The same presets as the Critic AVG app.</div>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="CaTargetField">Where to write the score</label>
+                    <select is="emby-select" id="CaTargetField" name="CaTargetField" class="emby-select-withcolor emby-select">
+                        <option value="CommunityRating">Community rating, the star score out of 10 (recommended)</option>
+                        <option value="CriticRating">Critic rating, out of 100</option>
+                        <option value="Both">Both</option>
+                    </select>
+                    <div class="fieldDescription">Sort by "Community rating" or "Critics rating" in your library to see films by Critic AVG.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="CaRefreshDays">Fetch a film's score again after (days)</label>
+                    <input id="CaRefreshDays" name="CaRefreshDays" type="number" min="1" max="365" is="emby-input" />
+                    <div class="fieldDescription">Scores change slowly; 7 days is plenty.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="CaMaxPerRun">Most films to fetch per run</label>
+                    <input id="CaMaxPerRun" name="CaMaxPerRun" type="number" min="1" max="5000" is="emby-input" />
+                    <div class="fieldDescription">Keeps your server within OMDb's free 1,000 requests a day. A large library is covered over a few nights.</div>
+                </div>
+
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button"><span>Save</span></button>
+                </div>
+                <p class="fieldDescription" style="margin-top:1.5em">
+                    The scores update every night at 04:00. To run it now: Dashboard → Scheduled Tasks → Critic AVG → Update Critic AVG scores → ▶.
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = '96c4c7d6-624e-40a0-86af-108a3c395608';
+            var page = document.querySelector('#CriticAvgConfigPage');
+
+            page.addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    page.querySelector('#CaServerUrl').value = config.ServerUrl || '';
+                    page.querySelector('#CaPreset').value = config.Preset || 'balanced';
+                    page.querySelector('#CaTargetField').value = config.TargetField || 'CommunityRating';
+                    page.querySelector('#CaRefreshDays').value = config.RefreshDays || 7;
+                    page.querySelector('#CaMaxPerRun').value = config.MaxPerRun || 300;
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            page.querySelector('#CaTest').addEventListener('click', function () {
+                var out = page.querySelector('#CaTestResult');
+                var url = (page.querySelector('#CaServerUrl').value || '').replace(/\/+$/, '');
+                if (!url) { out.textContent = 'Enter the server address first.'; return; }
+                out.textContent = 'Checking…';
+                fetch(url + '/api/health').then(function (r) { return r.json(); }).then(function (h) {
+                    if (!h.ok) { out.textContent = 'That address answered, but it is not a Critic AVG server.'; return; }
+                    var missing = [];
+                    if (!h.tmdb) missing.push('TMDB_TOKEN');
+                    if (!h.omdb) missing.push('OMDB_KEY');
+                    out.textContent = missing.length
+                        ? 'Connected (version ' + h.version + '), but the server is missing: ' + missing.join(', ')
+                        : 'Connected to Critic AVG ' + h.version + '.';
+                }).catch(function () {
+                    out.textContent = 'Could not reach that address. Check it opens in your browser.';
+                });
+            });
+
+            page.querySelector('#CriticAvgConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.ServerUrl = (page.querySelector('#CaServerUrl').value || '').trim().replace(/\/+$/, '');
+                    config.Preset = page.querySelector('#CaPreset').value;
+                    config.TargetField = page.querySelector('#CaTargetField').value;
+                    config.RefreshDays = parseInt(page.querySelector('#CaRefreshDays').value, 10) || 7;
+                    config.MaxPerRun = parseInt(page.querySelector('#CaMaxPerRun').value, 10) || 300;
+                    ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                return false;
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>
