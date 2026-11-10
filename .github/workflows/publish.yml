@@ -1,0 +1,96 @@
+name: Build and publish Critic AVG for Jellyfin
+
+# Run it from the Actions tab ("Run workflow"), or by pushing a tag like v1.0.0.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  PLUGIN_VERSION: "1.0.0" # bump for each new release
+
+jobs:
+  build:
+    name: Build for Jellyfin ${{ matrix.jellyfin }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - jellyfin: "12.0.0"
+            framework: net10.0
+            dotnet: "10.0.x"
+            abi: "12.0.0.0"
+            build: "12"
+          - jellyfin: "10.11.11"
+            framework: net9.0
+            dotnet: "9.0.x"
+            abi: "10.11.0.0"
+            build: "11"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+
+      - name: Compile
+        run: >
+          dotnet build Jellyfin.Plugin.CriticAvg/Jellyfin.Plugin.CriticAvg.csproj
+          -c Release -o out
+          -p:JellyfinVersion=${{ matrix.jellyfin }}
+          -p:TargetFramework=${{ matrix.framework }}
+          -p:Version=${{ env.PLUGIN_VERSION }}.${{ matrix.build }}
+
+      - name: Package
+        run: >
+          python3 scripts/package.py
+          --dll out/Jellyfin.Plugin.CriticAvg.dll
+          --version ${{ env.PLUGIN_VERSION }}.${{ matrix.build }}
+          --abi ${{ matrix.abi }}
+          --changelog "Critic AVG ${{ env.PLUGIN_VERSION }} for Jellyfin ${{ matrix.jellyfin }}"
+          --out dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: criticavg-jellyfin-${{ matrix.jellyfin }}
+          path: dist/*.zip
+
+  publish:
+    name: Publish release and repository manifest
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create the release with both builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${PLUGIN_VERSION}"
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" dist/*.zip \
+            --title "Critic AVG for Jellyfin ${PLUGIN_VERSION}" \
+            --notes "Builds for Jellyfin 12 and Jellyfin 10.11. Add this repository in Jellyfin: https://raw.githubusercontent.com/${{ github.repository }}/manifest/manifest.json"
+
+      - name: Build the repository manifest
+        run: python3 scripts/make_manifest.py --repo "${{ github.repository }}" --tag "v${PLUGIN_VERSION}" --dist dist --out /tmp/manifest.json
+
+      - name: Publish the manifest to the "manifest" branch
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan manifest
+          git rm -rf --quiet . || true
+          cp /tmp/manifest.json manifest.json
+          git add manifest.json
+          git commit -m "Manifest for v${PLUGIN_VERSION}"
+          git push --force origin manifest
