@@ -24,9 +24,9 @@
                 </div>
 
                 <div class="selectContainer">
-                    <label class="selectLabel" for="CaPreset">Weights</label>
+                    <label class="selectLabel" for="CaPreset">Weights · how the score is calculated (Pesos)</label>
                     <select is="emby-select" id="CaPreset" name="CaPreset" class="emby-select-withcolor emby-select">
-                        <option value="balanced">Balanced (Equilibrado)</option>
+                        <option value="balanced">Balanced (Equilibrado) · recommended</option>
                         <option value="equal">All equal (Todas iguales)</option>
                         <option value="critics">Critics (Crítica)</option>
                         <option value="audience">Audience (Público)</option>
@@ -56,12 +56,12 @@
                 <h3 class="sectionTitle" style="margin-top:2em">Sorting (Ordenar)</h3>
 
                 <div class="selectContainer">
-                    <label class="selectLabel" for="CaTargetField">Sort by Critic AVG using</label>
+                    <label class="selectLabel" for="CaTargetField">Jellyfin field that stores Critic AVG, for sorting (Campo para ordenar)</label>
                     <select is="emby-select" id="CaTargetField" name="CaTargetField" class="emby-select-withcolor emby-select">
-                        <option value="CriticRating">Critics rating (recommended)</option>
-                        <option value="CommunityRating">Community rating</option>
-                        <option value="Both">Both</option>
-                        <option value="None">Don't write it, no sorting by Critic AVG</option>
+                        <option value="CriticRating">Critics Rating field · recommended</option>
+                        <option value="CommunityRating">Community Rating field</option>
+                        <option value="Both">Both fields</option>
+                        <option value="None">None · don't sort by Critic AVG</option>
                     </select>
                     <div class="fieldDescription">
                         Jellyfin can only sort by its own fields, so the Critic AVG score is stored in the one you pick here.
