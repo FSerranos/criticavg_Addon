@@ -71,6 +71,7 @@ public class UpdateScoresTask : IScheduledTask
 
         var storePath = Path.Combine(plugin.DataFolderPath, "scores.json");
         var store = ScoreStore.Load(storePath);
+        store.Migrate(config.TargetField);
 
         var films = _libraryManager.GetItemList(new InternalItemsQuery
         {
@@ -113,7 +114,17 @@ public class UpdateScoresTask : IScheduledTask
                             var result = await CriticAvgClient.GetScoreAsync(http, config.ServerUrl, tmdb, imdb, config.Preset, cancellationToken).ConfigureAwait(false);
                             if (result?.Score is double score)
                             {
-                                entry = new ScoreEntry { Score = score, Updated = DateTime.UtcNow, Preset = config.Preset };
+                                entry = new ScoreEntry
+                                {
+                                    Score = score,
+                                    Updated = DateTime.UtcNow,
+                                    Preset = config.Preset,
+                                    OriginalCommunityRating = entry?.OriginalCommunityRating,
+                                    OriginalCriticRating = entry?.OriginalCriticRating,
+                                    WrittenCommunityRating = entry?.WrittenCommunityRating,
+                                    WrittenCriticRating = entry?.WrittenCriticRating,
+                                    Format = ScoreEntry.CurrentFormat
+                                };
                                 store.Entries[key] = entry;
                             }
                             else if (!string.IsNullOrEmpty(result?.Error))
@@ -135,7 +146,7 @@ public class UpdateScoresTask : IScheduledTask
                 }
 
                 // Write (or re-write, if a metadata refresh replaced it) the stored score.
-                if (entry is not null && Apply(film, entry.Score, config.TargetField))
+                if (entry is not null && Apply(film, entry, config.TargetField))
                 {
                     await film.UpdateToRepositoryAsync(ItemUpdateType.MetadataEdit, cancellationToken).ConfigureAwait(false);
                     written++;
@@ -156,25 +167,85 @@ public class UpdateScoresTask : IScheduledTask
         progress.Report(100);
     }
 
-    /// <summary>Puts the score into the chosen field(s). Returns true when something changed.</summary>
-    private static bool Apply(BaseItem film, double score, string targetField)
+    /// <summary>
+    /// Puts the score into the chosen field(s), remembering each field's own value first, and gives the own value back to
+    /// a field that is no longer chosen. Returns true when the film changed.
+    /// </summary>
+    private static bool Apply(BaseItem film, ScoreEntry entry, string targetField)
     {
+        var writeCommunity = targetField is "CommunityRating" or "Both";
+        var writeCritic = targetField is "CriticRating" or "Both";
         var changed = false;
-        var outOf10 = (float)Math.Round(score, 1);
-        var outOf100 = (float)Math.Round(score * 10);
 
-        if ((targetField is "CommunityRating" or "Both") && film.CommunityRating != outOf10)
+        // Community rating (the star, out of 10).
+        var ten = Ten(entry.Score);
+        var community = film.CommunityRating;
+        if (writeCommunity)
         {
-            film.CommunityRating = outOf10;
-            changed = true;
+            if (!Same(community, ten))
+            {
+                // Anything that is not what Critic AVG wrote came from Jellyfin's metadata (TMDB): keep it.
+                if (!Same(community, entry.WrittenCommunityRating))
+                {
+                    entry.OriginalCommunityRating = community;
+                }
+
+                film.CommunityRating = ten;
+                changed = true;
+            }
+
+            entry.WrittenCommunityRating = ten;
+        }
+        else if (entry.WrittenCommunityRating is not null)
+        {
+            if (Same(community, entry.WrittenCommunityRating))
+            {
+                film.CommunityRating = entry.OriginalCommunityRating;
+                changed = true;
+            }
+
+            entry.WrittenCommunityRating = null;
         }
 
-        if ((targetField is "CriticRating" or "Both") && film.CriticRating != outOf100)
+        // Critic rating (the tomato, out of 100).
+        var hundred = Hundred(entry.Score);
+        var critic = film.CriticRating;
+        if (writeCritic)
         {
-            film.CriticRating = outOf100;
-            changed = true;
+            if (!Same(critic, hundred))
+            {
+                if (!Same(critic, entry.WrittenCriticRating))
+                {
+                    entry.OriginalCriticRating = critic;
+                }
+
+                film.CriticRating = hundred;
+                changed = true;
+            }
+
+            entry.WrittenCriticRating = hundred;
+        }
+        else if (entry.WrittenCriticRating is not null)
+        {
+            if (Same(critic, entry.WrittenCriticRating))
+            {
+                film.CriticRating = entry.OriginalCriticRating;
+                changed = true;
+            }
+
+            entry.WrittenCriticRating = null;
         }
 
         return changed;
     }
+
+    /// <summary>The score out of 10, one decimal.</summary>
+    internal static float Ten(double score) => (float)Math.Round(score, 1);
+
+    /// <summary>The score out of 100, no decimals.</summary>
+    internal static float Hundred(double score) => (float)Math.Round(score * 10);
+
+    /// <summary>Compares two ratings, allowing for float rounding.</summary>
+    internal static bool Same(float? a, float? b)
+        => a is null ? b is null : b is not null && Math.Abs(a.Value - b.Value) < 0.05f;
 }

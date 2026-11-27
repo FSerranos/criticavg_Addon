@@ -9,7 +9,7 @@
     <div data-role="content">
         <div class="content-primary">
             <h2 class="sectionTitle">Critic AVG</h2>
-            <p>Dozens of critics. One clear score. This plugin writes each film's Critic AVG score into its rating, so you can sort and filter your library by it.</p>
+            <p>Dozens of critics. One clear score. This plugin shows each film's Critic AVG score on its page and lets you sort your library by it.</p>
 
             <form id="CriticAvgConfigForm">
                 <div class="inputContainer">
@@ -36,14 +36,39 @@
                     <div class="fieldDescription">The same presets as the Critic AVG app.</div>
                 </div>
 
+                <h3 class="sectionTitle" style="margin-top:2em">On the film page (En la ficha)</h3>
+
                 <div class="selectContainer">
-                    <label class="selectLabel" for="CaTargetField">Where to write the score</label>
-                    <select is="emby-select" id="CaTargetField" name="CaTargetField" class="emby-select-withcolor emby-select">
-                        <option value="CommunityRating">Community rating, the star score out of 10 (recommended)</option>
-                        <option value="CriticRating">Critic rating, out of 100</option>
-                        <option value="Both">Both</option>
+                    <label class="selectLabel" for="CaDisplayMode">How to show the score</label>
+                    <select is="emby-select" id="CaDisplayMode" name="CaDisplayMode" class="emby-select-withcolor emby-select">
+                        <option value="Beside">Beside the star and the tomato (Al lado)</option>
+                        <option value="Alone">Alone, star and tomato hidden (Sola)</option>
                     </select>
-                    <div class="fieldDescription">Sort by "Community rating" or "Critics rating" in your library to see films by Critic AVG.</div>
+                    <div class="fieldDescription">
+                        Beside: ★ 6.8 · 🍅 100 · <b>Critic AVG 7.4</b>. The star and the tomato keep the film's own values.<br>
+                        Alone: only <b>Critic AVG 7.4</b>.<br>
+                        Works in Jellyfin web and the apps built on it (Android phone app, Jellyfin Media Player).
+                        TV apps (Android TV, Swiftfin, Roku…) don't run plugin scripts: they show whatever is in the field below.
+                        After saving, reload the page (F5).
+                    </div>
+                </div>
+
+                <h3 class="sectionTitle" style="margin-top:2em">Sorting (Ordenar)</h3>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="CaTargetField">Sort by Critic AVG using</label>
+                    <select is="emby-select" id="CaTargetField" name="CaTargetField" class="emby-select-withcolor emby-select">
+                        <option value="CriticRating">Critics rating (recommended)</option>
+                        <option value="CommunityRating">Community rating</option>
+                        <option value="Both">Both</option>
+                        <option value="None">Don't write it, no sorting by Critic AVG</option>
+                    </select>
+                    <div class="fieldDescription">
+                        Jellyfin can only sort by its own fields, so the Critic AVG score is stored in the one you pick here.
+                        Then in your library: Sort by → "Critics Rating" (or "Community Rating").
+                        On the film page the plugin still shows that field's own value (Beside mode).
+                        Changing this gives the fields you stop using their own value back on the next run.
+                    </div>
                 </div>
 
                 <div class="inputContainer">
@@ -78,7 +103,8 @@
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     page.querySelector('#CaServerUrl').value = config.ServerUrl || '';
                     page.querySelector('#CaPreset').value = config.Preset || 'balanced';
-                    page.querySelector('#CaTargetField').value = config.TargetField || 'CommunityRating';
+                    page.querySelector('#CaTargetField').value = config.TargetField || 'CriticRating';
+                    page.querySelector('#CaDisplayMode').value = config.DisplayMode || 'Beside';
                     page.querySelector('#CaRefreshDays').value = config.RefreshDays || 7;
                     page.querySelector('#CaMaxPerRun').value = config.MaxPerRun || 300;
                     Dashboard.hideLoadingMsg();
@@ -110,6 +136,7 @@
                     config.ServerUrl = (page.querySelector('#CaServerUrl').value || '').trim().replace(/\/+$/, '');
                     config.Preset = page.querySelector('#CaPreset').value;
                     config.TargetField = page.querySelector('#CaTargetField').value;
+                    config.DisplayMode = page.querySelector('#CaDisplayMode').value;
                     config.RefreshDays = parseInt(page.querySelector('#CaRefreshDays').value, 10) || 7;
                     config.MaxPerRun = parseInt(page.querySelector('#CaMaxPerRun').value, 10) || 300;
                     ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {

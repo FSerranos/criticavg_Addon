@@ -11,8 +11,18 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the weights preset: balanced, equal, critics, audience, cinephile or spain.</summary>
     public string Preset { get; set; } = "balanced";
 
-    /// <summary>Gets or sets where the score goes: CommunityRating (star, 0–10), CriticRating (0–100) or Both.</summary>
-    public string TargetField { get; set; } = "CommunityRating";
+    /// <summary>
+    /// Gets or sets which rating field holds the Critic AVG score, so libraries can be sorted by it:
+    /// CommunityRating (star, 0–10), CriticRating (0–100), Both, or None (nothing is written, no sorting).
+    /// </summary>
+    public string TargetField { get; set; } = "CriticRating";
+
+    /// <summary>
+    /// Gets or sets how the film page shows the score (Jellyfin web and apps built on it):
+    /// Beside = a Critic AVG badge next to the star and the tomato, which keep their original values;
+    /// Alone = only the Critic AVG badge, the star and the tomato are hidden.
+    /// </summary>
+    public string DisplayMode { get; set; } = "Beside";
 
     /// <summary>Gets or sets how many days a film's score is kept before it is fetched again.</summary>
     public int RefreshDays { get; set; } = 7;

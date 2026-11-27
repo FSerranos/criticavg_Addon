@@ -32,8 +32,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- ASP.NET Core: the plugin adds a small web API and puts its script into the Jellyfin web page. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Configuration\configPage.html" />
     <EmbeddedResource Include="Configuration\configPage.html" />
+    <None Remove="Web\criticavg.js" />
+    <EmbeddedResource Include="Web\criticavg.js" />
   </ItemGroup>
 
 </Project>
